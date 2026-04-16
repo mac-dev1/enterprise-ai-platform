@@ -14,8 +14,7 @@ def upload_file(file: UploadFile = File(...)):
     content = file.file.read().decode("utf-8")
 
     chunks = split_text(content)
-    build_index(chunks)
-
+    build_index(chunks, file.filename)
     return {"message": "File processed and indexed successfully"}
 
 @router.post("/ask", response_model=AnswerResponse)
