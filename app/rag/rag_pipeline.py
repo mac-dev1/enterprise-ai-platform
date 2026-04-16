@@ -89,23 +89,40 @@ def retrieve_context(question, stored_chunks, index, k=3):
 
     return results
 
+def clean_text(text):
+    # eliminar saltos de línea
+    text = text.replace("\n", " ")
+
+    # eliminar múltiples espacios
+    text = re.sub(r"\s+", " ", text)
+
+    return text.strip()
+
+
 def generate_answer(question, context_chunks):
     if not context_chunks:
         return "No relevant information found."
 
-    texts = [c["text"] for c in context_chunks]
+    texts = [clean_text(c["text"]) for c in context_chunks]
 
-    # unir sin duplicados
+    # eliminar duplicados manteniendo orden
     seen = set()
-    filtered = []
+    unique_texts = []
 
     for t in texts:
         if t not in seen:
-            filtered.append(t)
+            unique_texts.append(t)
             seen.add(t)
 
-    # respuesta más limpia
-    answer = " ".join(filtered[:2])
+    # 🔥 resumir: tomar primeras frases
+    sentences = []
+    for text in unique_texts:
+        sentences.extend(re.split(r"(?<=[.!?]) +", text))
+
+    # filtrar frases útiles
+    sentences = [s for s in sentences if len(s) > 40]
+
+    answer = " ".join(sentences[:2])
 
     sources = ", ".join(set([c["source"] for c in context_chunks]))
 
