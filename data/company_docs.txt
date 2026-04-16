@@ -1,0 +1,11 @@
+Onboarding process:
+All new employees must complete HR documentation, attend orientation, and receive system access within the first week.
+
+IT Support:
+For technical issues, employees must submit a ticket through the internal system. Critical issues are handled within 24 hours.
+
+Vacation Policy:
+Employees are entitled to 20 days of paid leave per year. Requests must be approved by managers.
+
+Security Policy:
+Passwords must be updated every 90 days. Sensitive data must not be shared externally.
