@@ -33,11 +33,14 @@ def build_index(new_chunks, source_name):
         stored_chunks = []
 
     # Add new chunks with metadata
+    existing_texts = set(c["text"] for c in stored_chunks)
+
     for chunk in new_chunks:
-        stored_chunks.append({
-            "text": chunk,
-            "source": source_name
-        })
+        if chunk not in existing_texts:
+            stored_chunks.append({
+                "text": chunk,
+                "source": source_name
+            })
 
     texts = [c["text"] for c in stored_chunks]
 
@@ -83,13 +86,31 @@ def generate_answer(question, context_chunks):
     if not context_chunks:
         return "No relevant information found."
 
-    chunk = context_chunks[0]
+    text = context_chunks[0]["text"].lower()
+
+    if "how many" in question.lower():
+        import re
+        numbers = re.findall(r"\d+", text)
+        if numbers:
+            return f"Answer: {numbers[0]}"
+
+    # Dividir en líneas
+    lines = text.split("\n")
+
+    # Filtrar líneas útiles (simples heurísticas)
+    relevant_lines = [
+        line for line in lines
+        if len(line.strip()) > 20
+    ]
+
+    # Tomar las más relevantes
+    answer = " ".join(relevant_lines[:2])
 
     return f"""
 Answer:
-{chunk['text']}
+{answer}
 
-(Source: {chunk['source']})
+(Source: {context_chunks[0]['source']})
 """
 
 def get_rag_answer(question: str) -> str:
