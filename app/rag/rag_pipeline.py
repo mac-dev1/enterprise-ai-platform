@@ -4,6 +4,7 @@ import numpy as np
 import os
 import pickle
 import re
+from sklearn.metrics.pairwise import cosine_similarity
 
 INDEX_PATH = "data/index/faiss.index"
 CHUNKS_PATH = "data/index/chunks.pkl"
@@ -70,47 +71,49 @@ def load_index():
 
     return index, stored_chunks
 
-def retrieve_context(question, stored_chunks, index, k=1):
-    query_vector = model.encode([question])
-    query_vector = np.array(query_vector)
+def retrieve_context(question, stored_chunks, index, k=3):
+    texts = [c["text"] for c in stored_chunks]
 
-    distances, indices = index.search(query_vector, k)
+    # embeddings
+    query_vec = model.encode([question])
+    chunk_vecs = model.encode(texts)
 
-    # Threshold para evitar resultados irrelevantes
-    if distances[0][0] > 1.2:
-        return []
+    # similitud coseno
+    similarities = cosine_similarity(query_vec, chunk_vecs)[0]
 
-    return [stored_chunks[i] for i in indices[0]]
+    # ordenar por relevancia
+    ranked_indices = similarities.argsort()[::-1]
+
+    # tomar top-k
+    results = [stored_chunks[i] for i in ranked_indices[:k]]
+
+    return results
 
 def generate_answer(question, context_chunks):
     if not context_chunks:
         return "No relevant information found."
 
-    text = context_chunks[0]["text"].lower()
+    texts = [c["text"] for c in context_chunks]
 
-    if "how many" in question.lower():
-        import re
-        numbers = re.findall(r"\d+", text)
-        if numbers:
-            return f"Answer: {numbers[0]}"
+    # unir sin duplicados
+    seen = set()
+    filtered = []
 
-    # Dividir en líneas
-    lines = text.split("\n")
+    for t in texts:
+        if t not in seen:
+            filtered.append(t)
+            seen.add(t)
 
-    # Filtrar líneas útiles (simples heurísticas)
-    relevant_lines = [
-        line for line in lines
-        if len(line.strip()) > 20
-    ]
+    # respuesta más limpia
+    answer = " ".join(filtered[:2])
 
-    # Tomar las más relevantes
-    answer = " ".join(relevant_lines[:2])
+    sources = ", ".join(set([c["source"] for c in context_chunks]))
 
     return f"""
 Answer:
 {answer}
 
-(Source: {context_chunks[0]['source']})
+(Sources: {sources})
 """
 
 def get_rag_answer(question: str) -> str:
@@ -120,5 +123,4 @@ def get_rag_answer(question: str) -> str:
         return "No documents available. Please upload documents first."
 
     relevant_chunks = retrieve_context(question, stored_chunks, index)
-    print("CHUNKS:", stored_chunks)
     return generate_answer(question, relevant_chunks)
