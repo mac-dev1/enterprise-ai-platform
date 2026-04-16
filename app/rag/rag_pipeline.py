@@ -1,6 +1,10 @@
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
+import os
+
+INDEX_PATH = "data/index/faiss.index"
+CHUNKS_PATH = "data/index/chunks.npy"
 
 # Load model once (important for performance)
 model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -20,7 +24,20 @@ def build_index(chunks):
     index = faiss.IndexFlatL2(dimension)
     index.add(embeddings)
 
-    return index, embeddings
+    # Save index
+    faiss.write_index(index, INDEX_PATH)
+    np.save(CHUNKS_PATH, np.array(chunks))
+
+    return index
+
+def load_index():
+    if not os.path.exists(INDEX_PATH):
+        return None, None
+
+    index = faiss.read_index(INDEX_PATH)
+    chunks = np.load(CHUNKS_PATH, allow_pickle=True)
+
+    return index, chunks
 
 def retrieve_context(question, chunks, index, k=1):
     query_vector = model.encode([question])
@@ -39,10 +56,10 @@ def generate_answer(question, context_chunks):
     return f"""\nAnswer:\n\n{context}"""
 
 def get_rag_answer(question: str) -> str:
-    text = load_documents()
-    chunks = split_text(text)
+    index, chunks = load_index()
 
-    index, _ = build_index(chunks)
+    if index is None:
+        return "No documents available. Please upload documents first."
 
     relevant_chunks = retrieve_context(question, chunks, index)
 
