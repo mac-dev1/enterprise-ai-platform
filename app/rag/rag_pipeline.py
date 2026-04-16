@@ -9,16 +9,8 @@ def load_documents():
     with open("data/company_docs.txt", "r", encoding="utf-8") as f:
         return f.read()
 
-def split_text(text, chunk_size=300, overlap=50):
-    chunks = []
-    start = 0
-
-    while start < len(text):
-        end = start + chunk_size
-        chunks.append(text[start:end])
-        start += chunk_size - overlap
-
-    return chunks
+def split_text(text):
+    return [chunk.strip() for chunk in text.split("\n\n") if chunk.strip()]
 
 def build_index(chunks):
     embeddings = model.encode(chunks)
@@ -30,7 +22,7 @@ def build_index(chunks):
 
     return index, embeddings
 
-def retrieve_context(question, chunks, index, k=2):
+def retrieve_context(question, chunks, index, k=1):
     query_vector = model.encode([question])
     query_vector = np.array(query_vector)
 
@@ -39,15 +31,12 @@ def retrieve_context(question, chunks, index, k=2):
     return [chunks[i] for i in indices[0]]
 
 def generate_answer(question, context_chunks):
-    context = "\n".join(context_chunks)
+    if not context_chunks:
+        return "No relevant information found."
 
-    return f"""
-Answer based on company documents:
+    context = context_chunks[0]
 
-{context}
-
-Question: {question}
-"""
+    return f"""\nAnswer:\n\n{context}"""
 
 def get_rag_answer(question: str) -> str:
     text = load_documents()
