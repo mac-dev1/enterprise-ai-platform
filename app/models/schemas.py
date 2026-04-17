@@ -2,6 +2,7 @@ from pydantic import BaseModel
 
 class QuestionRequest(BaseModel):
     question: str
+    session_id: str
 
 class AnswerResponse(BaseModel):
-    response: dict
+    answer: str

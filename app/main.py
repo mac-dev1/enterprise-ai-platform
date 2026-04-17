@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from app.api.routes import router
-from dotenv import load_dotenv
+from fastapi.staticfiles import StaticFiles
 
-load_dotenv()
-
-app = FastAPI(title="Enterprise AI Platform")
+app = FastAPI()
 
 app.include_router(router)
+
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

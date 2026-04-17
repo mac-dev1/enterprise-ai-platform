@@ -24,5 +24,7 @@ Decision:
         return "rag"
     elif "clarify" in decision:
         return "clarify"
+    elif "summarize" in question.lower():
+        return "summarize"
     else:
         return "general"

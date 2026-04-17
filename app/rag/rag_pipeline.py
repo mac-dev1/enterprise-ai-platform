@@ -209,23 +209,29 @@ def get_rag_answer(question, conversation_summary=""):
     
     action = decide_action(question)
     if action == "clarify":
-        return {
-            "answer": "Could you clarify your question?",
-            "summary": conversation_summary
-        }
-    elif action == "general":
-        answer = query_llm(question)
-        return {
-            "answer": answer,
-            "summary": conversation_summary
-        }
+        return ("Could you clarify your question?", conversation_summary)
+    
+    if action == "summarize":
+        context_chunks = retrieve_context(question, stored_chunks, index)
+
+        context = build_context(context_chunks)
+
+        prompt = f"""
+    Summarize the following company information:
+
+    {context}
+
+    Summary:
+    """
+
+        answer = query_llm(prompt)
+
+        return (answer, conversation_summary)
+    
     rewritten_question = rewrite_query(question)
     context_chunks = retrieve_context(rewritten_question, stored_chunks, index)
     
     answer = generate_answer(rewritten_question, context_chunks, conversation_summary)
     new_summary = update_summary(conversation_summary, question, answer)
 
-    return {
-        "answer": answer,
-        "summary": new_summary
-    }
+    return (answer,new_summary)
