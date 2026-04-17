@@ -11,7 +11,7 @@ INDEX_PATH = "data/index/faiss.index"
 CHUNKS_PATH = "data/index/chunks.pkl"
 
 # Load model once (important for performance)
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
 
 def load_documents():
     with open("data/company_docs.txt", "r", encoding="utf-8") as f:
@@ -104,7 +104,7 @@ def load_index():
 
     return index, stored_chunks
 
-def retrieve_context(question, stored_chunks, index, k=3):
+def retrieve_context(question, stored_chunks, index, k=2):
     texts = [c["text"] for c in stored_chunks]
 
     # embeddings
@@ -132,16 +132,38 @@ def clean_text(text):
     return text.strip()
 
 
+def build_context(context_chunks, max_chars=1500):
+    context = ""
+    
+    for c in context_chunks:
+        if len(context) + len(c["text"]) < max_chars:
+            context += c["text"] + "\n\n"
+        else:
+            break
+
+    return context
+
 def generate_answer(question, context_chunks):
     if not context_chunks:
         return "No relevant information found."
 
-    context = "\n\n".join([c["text"] for c in context_chunks])
+    context = build_context(context_chunks)
 
     prompt = f"""
 You are an internal company assistant.
 
-Answer the question based ONLY on the context below.
+Your task is to answer questions based ONLY on the provided context.
+
+IMPORTANT RULES:
+- Only use the information in the context
+- Do NOT guess or invent information
+- If the context is not relevant, say:
+  "I don't have enough relevant information."
+- Focus only on the parts of the context that relate to the question
+- Ignore unrelated sections
+- Rephrase the answers to speak of the company in 3rd person, don't take you in account
+- Make answers in a clear and concise way (2-3 sentences max)  unless the user explicitly demands
+further information
 
 Context:
 {context}
@@ -149,7 +171,7 @@ Context:
 Question:
 {question}
 
-Answer clearly and concisely.
+Answer:
 """
 
     answer = query_llm(prompt)
