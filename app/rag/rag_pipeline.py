@@ -1,9 +1,10 @@
-from sentence_transformers import SentenceTransformer
+from app.services.llm_service import query_llm
 import faiss
 import numpy as np
 import os
 import pickle
 import re
+from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 INDEX_PATH = "data/index/faiss.index"
@@ -16,14 +17,46 @@ def load_documents():
     with open("data/company_docs.txt", "r", encoding="utf-8") as f:
         return f.read()
 
+def remove_table_of_contents(text):
+    lines = text.split("\n")
+
+    filtered = []
+    for line in lines:
+        # eliminar líneas tipo índice (muchos números)
+        if len(line) < 100 and any(char.isdigit() for char in line):
+            continue
+        filtered.append(line)
+
+    return "\n".join(filtered)
+
 def split_text(text):
-     # Normalizar saltos de línea
     text = text.replace("\r\n", "\n")
 
-    # Separar por bloques con títulos
-    sections = re.split(r"\n(?=[A-Z][a-zA-Z ]+:\n)", text)
+    text = remove_table_of_contents(text)
 
-    return [section.strip() for section in sections if section.strip()]
+    lines = text.split("\n")
+
+    chunks = []
+    current_chunk = ""
+
+    for line in lines:
+        line = line.strip()
+
+        # detectar títulos (heurística simple)
+        if len(line) < 60 and line.istitle():
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+                current_chunk = line
+            else:
+                current_chunk = line
+        else:
+            current_chunk += " " + line
+
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    # filtrar basura
+    return [c for c in chunks if len(c) > 100]
 
 def build_index(new_chunks, source_name):
     # Load existing data
@@ -103,31 +136,27 @@ def generate_answer(question, context_chunks):
     if not context_chunks:
         return "No relevant information found."
 
-    texts = [clean_text(c["text"]) for c in context_chunks]
+    context = "\n\n".join([c["text"] for c in context_chunks])
 
-    # eliminar duplicados manteniendo orden
-    seen = set()
-    unique_texts = []
+    prompt = f"""
+You are an internal company assistant.
 
-    for t in texts:
-        if t not in seen:
-            unique_texts.append(t)
-            seen.add(t)
+Answer the question based ONLY on the context below.
 
-    # 🔥 resumir: tomar primeras frases
-    sentences = []
-    for text in unique_texts:
-        sentences.extend(re.split(r"(?<=[.!?]) +", text))
+Context:
+{context}
 
-    # filtrar frases útiles
-    sentences = [s for s in sentences if len(s) > 40]
+Question:
+{question}
 
-    answer = " ".join(sentences[:2])
+Answer clearly and concisely.
+"""
+
+    answer = query_llm(prompt)
 
     sources = ", ".join(set([c["source"] for c in context_chunks]))
 
     return f"""
-Answer:
 {answer}
 
 (Sources: {sources})

@@ -10,11 +10,20 @@ st.title("🤖 Enterprise AI Assistant")
 # --- Upload section ---
 st.header("Upload document")
 
-uploaded_file = st.file_uploader("Choose a .txt file", type="txt")
+uploaded_file = st.file_uploader(
+    "Choose a file (.txt or .pdf)",
+    type=["txt", "pdf"]
+)
 
 if uploaded_file is not None:
-    files = {"file": uploaded_file.getvalue()}
-    response = requests.post(f"{API_URL}/upload", files={"file": uploaded_file})
+    files = {
+        "file": (uploaded_file.name, uploaded_file, uploaded_file.type)
+    }
+
+    response = requests.post(
+        f"{API_URL}/upload",
+        files=files
+    )
 
     if response.status_code == 200:
         st.success("File uploaded successfully!")
