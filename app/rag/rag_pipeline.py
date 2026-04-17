@@ -1,3 +1,4 @@
+from app.services.agent_service import decide_action
 from app.services.llm_service import query_llm
 from app.services.memory_service import update_summary
 import faiss
@@ -206,6 +207,18 @@ def get_rag_answer(question, conversation_summary=""):
     if index is None or stored_chunks is None:
         return "No documents available. Please upload documents first."
     
+    action = decide_action(question)
+    if action == "clarify":
+        return {
+            "answer": "Could you clarify your question?",
+            "summary": conversation_summary
+        }
+    elif action == "general":
+        answer = query_llm(question)
+        return {
+            "answer": answer,
+            "summary": conversation_summary
+        }
     rewritten_question = rewrite_query(question)
     context_chunks = retrieve_context(rewritten_question, stored_chunks, index)
     
