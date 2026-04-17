@@ -30,5 +30,5 @@ def upload_file(file: UploadFile = File(...)):
 
 @router.post("/ask", response_model=AnswerResponse)
 def ask_question(request: QuestionRequest):
-    answer = get_answer(request.question)
-    return AnswerResponse(answer=answer)
+    response = get_answer(request.question)
+    return AnswerResponse(response=response)

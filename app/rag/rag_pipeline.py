@@ -1,4 +1,5 @@
 from app.services.llm_service import query_llm
+from app.services.memory_service import update_summary
 import faiss
 import numpy as np
 import os
@@ -160,33 +161,31 @@ Rewritten question:
     rewritten = query_llm(prompt)
     return rewritten.strip()
 
-def generate_answer(question, context_chunks):
+def generate_answer(question, context_chunks, conversation_summary):
     if not context_chunks:
         return "No relevant information found."
 
     context = build_context(context_chunks)
 
-    prompt = f"""
+    prompt =  f"""
 You are an internal company assistant.
 
-Your task is to answer questions based ONLY on the provided context.
+Use the conversation summary and the context to answer.
 
-IMPORTANT RULES:
-- Only use the information in the context
-- Do NOT guess or invent information
-- If the context is not relevant, say:
-  "I don't have enough relevant information."
-- Focus only on the parts of the context that relate to the question
-- Ignore unrelated sections
-- Rephrase the answers to speak of the company in 3rd person, don't take you in account
-- Make answers in a clear and concise way (2-3 sentences max)  unless the user explicitly demands
-further information
+Conversation summary:
+{conversation_summary}
 
 Context:
 {context}
 
 Question:
 {question}
+
+Rules:
+- Be concise unless specification required
+- Use context and conversation summary when relevant
+- If not enough info, say so
+- Avoid talking about context or conversation history if not relevant
 
 Answer:
 """
@@ -201,7 +200,7 @@ Answer:
 (Sources: {sources})
 """
 
-def get_rag_answer(question: str) -> str:
+def get_rag_answer(question, conversation_summary=""):
     index, stored_chunks = load_index()
 
     if index is None or stored_chunks is None:
@@ -210,6 +209,10 @@ def get_rag_answer(question: str) -> str:
     rewritten_question = rewrite_query(question)
     context_chunks = retrieve_context(rewritten_question, stored_chunks, index)
     
-    print("Original:", question)
-    print("Rewritten:", rewritten_question)
-    return generate_answer(question, context_chunks)
+    answer = generate_answer(rewritten_question, context_chunks, conversation_summary)
+    new_summary = update_summary(conversation_summary, question, answer)
+
+    return {
+        "answer": answer,
+        "summary": new_summary
+    }
