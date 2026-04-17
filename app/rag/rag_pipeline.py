@@ -143,6 +143,23 @@ def build_context(context_chunks, max_chars=1500):
 
     return context
 
+def rewrite_query(question):
+    prompt = f"""
+Rewrite the following question to make it more specific and detailed for document search.
+
+Do NOT answer the question.
+Only rewrite it.
+DO NOT add text like "here is your answer"
+
+Question:
+{question}
+
+Rewritten question:
+"""
+
+    rewritten = query_llm(prompt)
+    return rewritten.strip()
+
 def generate_answer(question, context_chunks):
     if not context_chunks:
         return "No relevant information found."
@@ -189,6 +206,10 @@ def get_rag_answer(question: str) -> str:
 
     if index is None or stored_chunks is None:
         return "No documents available. Please upload documents first."
-
-    relevant_chunks = retrieve_context(question, stored_chunks, index)
-    return generate_answer(question, relevant_chunks)
+    
+    rewritten_question = rewrite_query(question)
+    context_chunks = retrieve_context(rewritten_question, stored_chunks, index)
+    
+    print("Original:", question)
+    print("Rewritten:", rewritten_question)
+    return generate_answer(question, context_chunks)
