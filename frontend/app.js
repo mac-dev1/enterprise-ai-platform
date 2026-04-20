@@ -5,6 +5,23 @@ if (!session_id) {
     localStorage.setItem("session_id", session_id);
 }
 
+function typeText(element, text, speed = 20) {
+    const messages = document.getElementById("messages")
+    element.innerHTML = ""
+    let i = 0;
+    element.classList.remove("typing")
+    function typing() {
+        if (i < text.length) {
+            element.innerHTML = marked.parse(text.substring(0, i));
+            messages.scrollTop = messages.scrollHeight
+            i++;
+            setTimeout(typing, speed);
+        }
+    }
+
+    typing();
+}
+
 async function sendMessage() {
     const input = document.getElementById("input");
     const text = input.value.trim();
@@ -14,11 +31,12 @@ async function sendMessage() {
     addMessage("user", text);
     input.value = "";
 
+    const messageDiv = addMessage("ai", "");
+    messageDiv.classList.add("typing")
+
     const response = await fetch("/ask", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             question: text,
             session_id: session_id
@@ -26,10 +44,8 @@ async function sendMessage() {
     });
 
     const data = await response.json();
-
-    summary = data.summary;
-
-    addMessage("ai", data.answer);
+    
+    typeText(messageDiv,data.answer)
 }
 
 function addMessage(role, text) {
@@ -43,6 +59,21 @@ function addMessage(role, text) {
 
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
+
+    return div; 
+}
+
+async function loadHistory() {
+    const res = await fetch(`/history/${session_id}`);
+
+    if (!res.ok) return;
+
+    const history = await res.json();
+
+    history.forEach(item => {
+        addMessage("user", item.q);
+        addMessage("ai", item.a);
+    });
 }
 
 // Enter
@@ -51,3 +82,7 @@ document.getElementById("input").addEventListener("keydown", function(e) {
         sendMessage();
     }
 });
+
+window.onload = async function () {
+    await loadHistory();
+};

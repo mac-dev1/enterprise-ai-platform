@@ -1,16 +1,21 @@
+import sys
+
+from torch import embedding
+from app.rag.index_builder import EMB_PATH
 from app.services.agent_service import decide_action
 from app.services.llm_service import query_llm
 from app.services.memory_service import update_summary
 import faiss
 import numpy as np
+import ollama
 import os
 import pickle
 import re
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
-INDEX_PATH = "data/index/faiss.index"
 CHUNKS_PATH = "data/index/chunks.pkl"
+EMB_PATH = "data/index/embeddings.pkl"
 
 # Load model once (important for performance)
 model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
@@ -60,7 +65,7 @@ def split_text(text):
     # filtrar basura
     return [c for c in chunks if len(c) > 100]
 
-def build_index(new_chunks, source_name):
+""" def build_index(new_chunks, source_name):
     # Load existing data
     if os.path.exists(CHUNKS_PATH):
         with open(CHUNKS_PATH, "rb") as f:
@@ -93,20 +98,23 @@ def build_index(new_chunks, source_name):
     with open(CHUNKS_PATH, "wb") as f:
         pickle.dump(stored_chunks, f)
 
-    return index
+    return index """
 
 def load_index():
-    if not os.path.exists(INDEX_PATH) or not os.path.exists(CHUNKS_PATH):
-        return None, None
-
-    index = faiss.read_index(INDEX_PATH)
+    if not os.path.exists(CHUNKS_PATH) or not os.path.exists(EMB_PATH):
+        print("No chunks or embbedings loaded")
+        print("Load some guide files in the data/documents folder")
+        sys.exit()
 
     with open(CHUNKS_PATH, "rb") as f:
-        stored_chunks = pickle.load(f)
+        chunks = pickle.load(f)
 
-    return index, stored_chunks
+    with open(EMB_PATH, "rb") as f:
+        embeddings = pickle.load(f)
 
-def retrieve_context(question, stored_chunks, index, k=2):
+    return chunks, embeddings
+
+def retrieve_context(question, stored_chunks, k=2):
     texts = [c["text"] for c in stored_chunks]
 
     # embeddings
@@ -202,17 +210,17 @@ Answer:
 """
 
 def get_rag_answer(question, conversation_summary=""):
-    index, stored_chunks = load_index()
+    stored_chunks,embeddings = load_index()
 
-    if index is None or stored_chunks is None:
+    if embeddings is None or stored_chunks is None:
         return "No documents available. Please upload documents first."
     
     action = decide_action(question)
     if action == "clarify":
-        return ("Could you clarify your question?", conversation_summary)
+        return "Could you clarify your question?"
     
     if action == "summarize":
-        context_chunks = retrieve_context(question, stored_chunks, index)
+        context_chunks = retrieve_context(question, stored_chunks)
 
         context = build_context(context_chunks)
 
@@ -226,12 +234,12 @@ def get_rag_answer(question, conversation_summary=""):
 
         answer = query_llm(prompt)
 
-        return (answer, conversation_summary)
+        return answer
     
     rewritten_question = rewrite_query(question)
-    context_chunks = retrieve_context(rewritten_question, stored_chunks, index)
+    context_chunks = retrieve_context(rewritten_question, stored_chunks)
     
     answer = generate_answer(rewritten_question, context_chunks, conversation_summary)
-    new_summary = update_summary(conversation_summary, question, answer)
+    
 
-    return (answer,new_summary)
+    return answer

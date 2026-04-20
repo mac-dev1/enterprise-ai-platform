@@ -1,44 +1,47 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from app.models.schemas import QuestionRequest, AnswerResponse
-from app.services.session_service import get_summary, update_summary
+from app.services.memory_service import update_summary_async
+from app.services.session_service import get_session, update_session
 from app.services.qa_service import get_answer
 from app.services.pdf_loader import load_pdf
-from app.rag.rag_pipeline import split_text, build_index
+from app.rag.rag_pipeline import split_text
+import asyncio
 
 router = APIRouter()
 
 sessions = {}
 
-""" @router.post("/upload")
-def upload_file(file: UploadFile = File(...)): 
-
-    if file.filename.endswith(".pdf"):
-        with open("temp.pdf", "wb") as f:
-            f.write(file.file.read())
-
-        content = load_pdf("temp.pdf")
-
-    else:
-        content = file.file.read().decode("utf-8")
-
-    chunks = split_text(content)
-
-    build_index(chunks, file.filename)
-
-    return {"message": "File processed and indexed successfully"}
-"""
-
-@router.post("/ask", response_model=AnswerResponse)
-def ask_question(request: QuestionRequest):
+@router.post("/ask")
+def ask_question(request: QuestionRequest, background_tasks: BackgroundTasks):
+    question = request.question
     session_id = request.session_id
 
-    if session_id not in sessions:
-        sessions[session_id] = ""
+    if not question or not session_id:
+        return {"error": "Missing question or session_id"}
 
-    summary = get_summary(session_id)
+    # 🔹 sesión
+    session = get_session(session_id)
+    summary = session["summary"]
 
-    ans,summ = get_answer(request.question,summary)
+    # 🔹 respuesta normal (NO streaming)
+    answer = get_answer(question, summary)
 
-    update_summary(session_id,summ)
+    # 🔹 guardar conversación
+    update_session(session_id, summary, question, answer)
 
-    return AnswerResponse(answer=ans)
+    # 🔹 summary async
+    background_tasks.add_task(
+        update_summary_async,
+        session_id,
+        summary,
+        question,
+        answer
+    )
+
+    return AnswerResponse(answer=answer)
+
+@router.get("/history/{session_id}")
+def get_history(session_id: str):
+    session = get_session(session_id)
+    return session["history"]

@@ -7,8 +7,7 @@ backend = subprocess.Popen(
     ["uvicorn", "app.main:app", "--reload"]
 )
 
-# Wait for server
-time.sleep(3)
+time.sleep(10)
 
 # Open frontend
 webbrowser.open("http://localhost:8000")
