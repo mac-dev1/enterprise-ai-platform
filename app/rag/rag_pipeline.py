@@ -4,7 +4,6 @@ from torch import embedding
 from app.rag.index_builder import EMB_PATH
 from app.services.agent_service import decide_action
 from app.services.llm_service import query_llm
-from app.services.memory_service import update_summary
 import faiss
 import numpy as np
 import ollama
@@ -14,91 +13,14 @@ import re
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from datetime import datetime
+
 CHUNKS_PATH = "data/index/chunks.pkl"
 EMB_PATH = "data/index/embeddings.pkl"
-
+INDEX = None
+ENCODED_CHUNKS = None
 # Load model once (important for performance)
 model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
-
-def load_documents():
-    with open("data/company_docs.txt", "r", encoding="utf-8") as f:
-        return f.read()
-
-def remove_table_of_contents(text):
-    lines = text.split("\n")
-
-    filtered = []
-    for line in lines:
-        # eliminar líneas tipo índice (muchos números)
-        if len(line) < 100 and any(char.isdigit() for char in line):
-            continue
-        filtered.append(line)
-
-    return "\n".join(filtered)
-
-def split_text(text):
-    text = text.replace("\r\n", "\n")
-
-    text = remove_table_of_contents(text)
-
-    lines = text.split("\n")
-
-    chunks = []
-    current_chunk = ""
-
-    for line in lines:
-        line = line.strip()
-
-        # detectar títulos (heurística simple)
-        if len(line) < 60 and line.istitle():
-            if current_chunk:
-                chunks.append(current_chunk.strip())
-                current_chunk = line
-            else:
-                current_chunk = line
-        else:
-            current_chunk += " " + line
-
-    if current_chunk:
-        chunks.append(current_chunk.strip())
-
-    # filtrar basura
-    return [c for c in chunks if len(c) > 100]
-
-""" def build_index(new_chunks, source_name):
-    # Load existing data
-    if os.path.exists(CHUNKS_PATH):
-        with open(CHUNKS_PATH, "rb") as f:
-            stored_chunks = pickle.load(f)
-    else:
-        stored_chunks = []
-
-    # Add new chunks with metadata
-    existing_texts = set(c["text"] for c in stored_chunks)
-
-    for chunk in new_chunks:
-        if chunk not in existing_texts:
-            stored_chunks.append({
-                "text": chunk,
-                "source": source_name
-            })
-
-    texts = [c["text"] for c in stored_chunks]
-
-    embeddings = model.encode(texts)
-    embeddings = np.array(embeddings)
-
-    dimension = embeddings.shape[1]
-    index = faiss.IndexFlatL2(dimension)
-    index.add(embeddings)
-
-    # Save everything
-    faiss.write_index(index, INDEX_PATH)
-
-    with open(CHUNKS_PATH, "wb") as f:
-        pickle.dump(stored_chunks, f)
-
-    return index """
 
 def load_index():
     if not os.path.exists(CHUNKS_PATH) or not os.path.exists(EMB_PATH):
@@ -112,14 +34,17 @@ def load_index():
     with open(EMB_PATH, "rb") as f:
         embeddings = pickle.load(f)
 
-    return chunks, embeddings
+    INDEX = chunks, embeddings
+    ENCODED_CHUNKS = model.encode([c["text"] for c in chunks])
+    return INDEX
 
-def retrieve_context(question, stored_chunks, k=2):
+
+def retrieve_context(question, stored_chunks, k=5):
     texts = [c["text"] for c in stored_chunks]
 
     # embeddings
     query_vec = model.encode([question])
-    chunk_vecs = model.encode(texts)
+    chunk_vecs = ENCODED_CHUNKS #model.encode(texts)
 
     # similitud coseno
     similarities = cosine_similarity(query_vec, chunk_vecs)[0]
@@ -146,10 +71,10 @@ def build_context(context_chunks, max_chars=1500):
     context = ""
     
     for c in context_chunks:
-        if len(context) + len(c["text"]) < max_chars:
-            context += c["text"] + "\n\n"
-        else:
-            break
+        #if len(context) + len(c["text"]) < max_chars:
+        context += c["text"] + "\n\n"
+        #else:
+        #    break
 
     return context
 
@@ -179,7 +104,7 @@ def generate_answer(question, context_chunks, conversation_summary):
     prompt =  f"""
 You are an internal company assistant.
 
-Use the conversation summary and the context to answer.
+Use the conversation summary, the context and your world knowledge to answer.
 
 Conversation summary:
 {conversation_summary}
@@ -195,27 +120,28 @@ Rules:
 - Use context and conversation summary when relevant
 - If not enough info, say so
 - Avoid talking about context or conversation history if not relevant
+- When you answer based on the context and not from the summary or your knowledge,
+ include the sources in the following way:
+
+(Sources: source1.pdf,source2.txt, and so)
 
 Answer:
 """
 
     answer = query_llm(prompt)
 
-    sources = ", ".join(set([c["source"] for c in context_chunks]))
 
-    return f"""
-{answer}
-
-(Sources: {sources})
-"""
+    return f"{answer}"
 
 def get_rag_answer(question, conversation_summary=""):
-    stored_chunks,embeddings = load_index()
+    
+    stored_chunks,embeddings = INDEX if INDEX else load_index()
 
     if embeddings is None or stored_chunks is None:
         return "No documents available. Please upload documents first."
     
-    action = decide_action(question)
+    
+    """ action = decide_action(question)
     if action == "clarify":
         return "Could you clarify your question?"
     
@@ -224,22 +150,21 @@ def get_rag_answer(question, conversation_summary=""):
 
         context = build_context(context_chunks)
 
-        prompt = f"""
+        prompt = f
     Summarize the following company information:
 
     {context}
 
     Summary:
-    """
+    
 
         answer = query_llm(prompt)
 
-        return answer
+        return answer """
     
-    rewritten_question = rewrite_query(question)
-    context_chunks = retrieve_context(rewritten_question, stored_chunks)
+    context_chunks = retrieve_context(question, stored_chunks)
     
-    answer = generate_answer(rewritten_question, context_chunks, conversation_summary)
+    answer = generate_answer(question, context_chunks, conversation_summary)
     
 
     return answer

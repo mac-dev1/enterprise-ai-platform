@@ -10,6 +10,105 @@ body {
     height: 100vh;
 }
 
+.auth-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 20px;
+}
+
+.auth-view input {
+    margin: 5px;
+    padding: 10px;
+    width: 250px;
+}
+
+.auth-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.logout-btn {
+    float: right;
+    background: #ef4444;
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.logout-btn:hover {
+    background: #dc2626;
+}
+
+.layout {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+    justify-content: center;
+}
+
+.sidebar {
+    position: absolute;
+    left: 0;
+    height: 100vh;
+    width: 15%;              /* 👈 fijo */
+    background: #202123;
+    padding: 10px;
+    border-radius: 0px 10px 10px 0px;
+    transition: width 0.8s ease;
+    overflow: hidden;          /* 👈 clave */
+}
+
+.sidebar.hidden {
+    width: 2%;               /* 👈 ancho reducido */
+    padding: 10px 5px;
+}
+
+#sidebarButtons {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#sidebarButtons button:last-child {
+    flex-shrink: 0;   /* 👈 evita que se deforme */
+}
+
+#newChat,
+#conversations {
+    opacity: 1;
+    transition: all 0.8s ease;
+}
+
+.sidebar.hidden #newChat,
+.sidebar.hidden #conversations {
+    opacity: 0;
+    width: 0;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.sidebar.hidden #sidebarButtons {
+    justify-content: center;
+}
+
+.active{
+    background-color: #343541;
+    border-radius: 5%;
+}
+
+#conversations div{
+    padding:3% 5%;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+}
+
 /* CONTENEDOR PRINCIPAL */
 .app {
     display: flex;
@@ -61,6 +160,12 @@ body {
     align-self: flex-start;
 }
 
+.timestamp {
+    font-size: 11px;
+    opacity: 0.6;
+    margin-top: 5px;
+}
+
 /* INPUT */
 .input-container {
     display: flex;
@@ -77,13 +182,17 @@ input {
 }
 
 button {
-    margin-left: 10px;
+    /*margin-left: 10px;*/
     padding: 10px;
     border: none;
-    background: #10a37f;
+    background: #40414f;
     color: white;
     border-radius: 5px;
     cursor: pointer;
+}
+
+.input-container button{
+    background-color: #3b82f6;
 }
 
 

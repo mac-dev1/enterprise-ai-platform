@@ -6,20 +6,46 @@
 </head>
 <body>
 
-<div class="app">
+<div id="auth-view" class="auth-view">
+    <h2>Login / Register</h2>
 
-    <div class="header">
-        🤖 Enterprise AI Assistant
+    <input id="email" placeholder="Email" />
+    <input id="password" type="password" placeholder="Password" />
+
+    <div class="auth-buttons">
+        <button onclick="login()">Login</button>
+        <button onclick="register()">Register</button>
     </div>
-
-    <div id="messages" class="messages"></div>
-
-    <div class="input-container">
-        <input id="input" placeholder="Ask about company policies..." />
-        <button onclick="sendMessage()">Send</button>
-    </div>
-
 </div>
+
+<div class="layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div id="sidebarButtons">
+            <button id="newChat" onclick="newChat()" style="display: block;">+ New Chat</button>
+            <button onclick="toggleSidebar()">☰</button>
+        </div>
+        <div id="conversations"></div>
+    </div>
+
+    <div class="app">
+
+        <div class="header">
+            🤖 Enterprise AI Assistant
+            <button onclick="logout()" class="logout-btn">Logout</button>
+        </div>
+
+        <div id="messages" class="messages"></div>
+
+        <div class="input-container">
+            <input id="input" placeholder="Ask about company policies..." />
+            <button onclick="sendMessage()">Send</button>
+        </div>
+
+    </div>
+</div>
+
+
 
 <script src="app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>

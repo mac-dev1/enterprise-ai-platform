@@ -32,7 +32,6 @@ def build_index():
 
     texts = [c["text"] for c in chunks]
     embeddings = model.encode(texts)
-
     os.makedirs(INDEX_PATH, exist_ok=True)
 
     with open(CHUNKS_PATH, "wb") as f:
